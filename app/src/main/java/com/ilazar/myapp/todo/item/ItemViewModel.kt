@@ -11,7 +11,7 @@ import com.ilazar.myapp2.todo.data.ItemRepository
 import kotlinx.coroutines.launch
 
 class ItemViewModel : ViewModel() {
-    private val mutableItem = MutableLiveData<Item>().apply { value = Item("", "") }
+    private val mutableItem = MutableLiveData<Item>().apply { value = Item("", "", "", 0, false) }
     private val mutableFetching = MutableLiveData<Boolean>().apply { value = false }
     private val mutableCompleted = MutableLiveData<Boolean>().apply { value = false }
     private val mutableException = MutableLiveData<Throwable>().apply { value = null }
@@ -40,11 +40,16 @@ class ItemViewModel : ViewModel() {
 
     }
 
-    fun saveOrUpdateItem(text: String) {
+    fun saveOrUpdateItem(text: String, date: String, length: Int, liked: Boolean) {
         viewModelScope.launch {
             Log.v(TAG, "saveOrUpdateItem...");
             val item = mutableItem.value ?: return@launch
+
             item.text = text
+            item.date = date
+            item.length = length
+            item.liked = liked
+
             mutableFetching.value = true
             mutableException.value = null
             val result: Result<Item>
