@@ -1,5 +1,6 @@
 package com.ilazar.myapp.todo
 
+import android.app.Application
 import android.app.DatePickerDialog
 import android.util.Log
 import android.widget.DatePicker
@@ -27,16 +28,18 @@ val TAG = "ItemScreen"
 @Composable
 fun ItemScreen(navController: NavController, itemId: String? = null) {
     val itemViewModel = viewModel<ItemViewModel>()
-    val item = itemViewModel.item.observeAsState().value
-
-    if(itemId != null && item?._id == "") {
-        Log.d(TAG, "the item id is $itemId")
-        itemViewModel.loadItem(itemId = itemId)
-    }
+    var item = itemViewModel.item.observeAsState().value
 
     val fetching = itemViewModel.fetching.observeAsState().value
     val fetchingError = itemViewModel.fetchingError.observeAsState().value
     val completed = itemViewModel.completed.observeAsState().value
+
+    if(itemId != null && item?._id == "" && completed == false) {
+        Log.d(TAG, "the item id is $itemId")
+        item = itemViewModel.getItemById(itemId = itemId).observeAsState().value
+    }
+
+
 
     var submitStarted by remember { mutableStateOf(false) }
 //    Log.d(TAG, "recompose $completed $submitStarted");
@@ -97,16 +100,13 @@ fun ItemScreen(navController: NavController, itemId: String? = null) {
 
     var itemLiked by remember { mutableStateOf(false) }
 
-    var initializedLiked = false
 
-    if (item != null && !initializedLiked) {
+    if (completed == false && !itemViewModel.setLiked && item != null) {
         itemLiked = item.liked
-        initializedLiked = true
+        itemViewModel.didSetLiked()
     }
 
-//    /liked
-
-
+//    liked
 
     Log.d(TAG, "the itemLiked is $itemLiked")
     Scaffold(
@@ -118,7 +118,7 @@ fun ItemScreen(navController: NavController, itemId: String? = null) {
                 onClick = {
                     Log.d(TAG, "save text: $itemText, date: $itemDate");
                     submitStarted = true
-                    itemViewModel.saveOrUpdateItem(itemText, itemDate, itemLength.toInt(), itemLiked)
+                    itemViewModel.saveOrUpdateItem(item?._id, itemText, itemDate, itemLength.toInt(), itemLiked)
                 },
             ) { Icon(imageVector = Icons.Rounded.Save, contentDescription = "Save") }
         }

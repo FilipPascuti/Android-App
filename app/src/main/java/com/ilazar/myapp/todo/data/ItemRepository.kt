@@ -1,74 +1,132 @@
 package com.ilazar.myapp2.todo.data
 
+import android.content.Context
+import android.content.ContextParams
 import android.util.Log
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.LiveData
+import androidx.work.*
 import com.ilazar.myapp.core.TAG
 import com.ilazar.myapp.todo.data.Item
+import com.ilazar.myapp.todo.data.local.ItemDao
 import com.ilazar.myapp.todo.data.remote.ItemApi
 
-object ItemRepository {
-    private var cachedItems: MutableList<Item>? = null;
 
-    suspend fun loadAll(): Result<List<Item>> {
-        if (cachedItems != null) {
-            Log.v(TAG, "loadAll - return cached items")
-            return Result.success(cachedItems as List<Item>);
-        }
+class ItemRepository(private val itemDao: ItemDao, val context: Context) {
+
+    val items = itemDao.getAll()
+
+    val constraints = Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .build()
+
+    suspend fun refresh(): Result<Boolean> {
         try {
-            Log.v(TAG, "loadAll - started")
             val items = ItemApi.service.find()
-            Log.v(TAG, "loadAll - succeeded")
-            cachedItems = mutableListOf()
-            cachedItems?.addAll(items)
-            return Result.success(cachedItems as List<Item>)
+            for (item in items) {
+                itemDao.insert(item)
+            }
+            return Result.success(true)
         } catch (e: Exception) {
-            Log.w(TAG, "loadAll - failed", e)
             return Result.failure(e)
         }
     }
 
-    suspend fun load(itemId: String): Result<Item> {
-        val item = cachedItems?.find { it._id == itemId }
-        if (item != null) {
-            Log.v(TAG, "load - return cached item")
-            return Result.success(item)
-        }
-        try {
-            Log.v(TAG, "load - started")
-            val itemRead = ItemApi.service.read(itemId)
-            Log.v(TAG, "load - succeeded")
-            return Result.success(itemRead)
-        } catch (e: Exception) {
-            Log.w(TAG, "load - failed", e)
-            return Result.failure(e)
-        }
+    fun getById(itemId: String): LiveData<Item> {
+        return itemDao.getById(itemId)
     }
 
     suspend fun save(item: Item): Result<Item> {
         try {
-            Log.v(TAG, "save - started")
             val createdItem = ItemApi.service.create(item)
-            Log.v(TAG, "save - succeeded, ${createdItem._id} ${createdItem.text}")
-            cachedItems?.add(createdItem)
+            itemDao.insert(createdItem)
             return Result.success(createdItem)
         } catch (e: Exception) {
-            Log.w(TAG, "save - failed", e)
-            return Result.failure(e)
+
+            val myWork = OneTimeWorkRequest.Builder(SaveWorker::class.java)
+                .setConstraints(constraints)
+                .setInputData(
+                    Data.Builder()
+                        .putString("text", item.text)
+                        .putString("date", item.date)
+                        .putInt("length", item.length)
+                        .putBoolean("liked", item.liked)
+                        .build()
+                )
+                .build()
+            WorkManager.getInstance(context).apply {
+                enqueue(myWork)
+            }
+            val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9')
+            val itemId = (1..5)
+                .map { allowedChars.random() }
+                .joinToString("")
+            itemDao.insert(Item(itemId, item.text, item.date, item.length, item.liked))
+            return Result.success(item)
         }
     }
 
     suspend fun update(item: Item): Result<Item> {
         try {
-            Log.v(TAG, "update - started")
             val updatedItem = ItemApi.service.update(item._id, item)
-            val index = cachedItems?.indexOfFirst { it._id == item._id }
-            if (index != null) {
-                cachedItems?.set(index, updatedItem)
-            }
-            Log.v(TAG, "update - succeeded")
+            itemDao.update(updatedItem)
             return Result.success(updatedItem)
         } catch (e: Exception) {
-            Log.v(TAG, "update - failed")
-            return Result.failure(e)
+            val myWork = OneTimeWorkRequest.Builder(UpdateWorker::class.java)
+                .setConstraints(constraints)
+                .setInputData(
+                    Data.Builder()
+                        .putString("_id", item._id)
+                        .putString("text", item.text)
+                        .putString("date", item.date)
+                        .putInt("length", item.length)
+                        .putBoolean("liked", item.liked)
+                        .build()
+                )
+                .build()
+            WorkManager.getInstance(context).apply {
+                enqueue(myWork)
+            }
+            itemDao.update(item)
+            return Result.success(item)
         }
     }
+}
+
+class SaveWorker(
+    context: Context,
+    workerParams: WorkerParameters
+) : CoroutineWorker(context, workerParams) {
+    override suspend fun doWork(): Result {
+        Log.w("main app", "save worker with input data: $inputData");
+
+        val item = Item(
+            "", inputData.getString("text")!!, inputData.getString("date")!!,
+            inputData.getInt("length", 0), inputData.getBoolean("liked", false)
+        )
+
+        ItemApi.service.create(item)
+
+        return Result.success()
+    }
+
+}
+
+class UpdateWorker(
+    context: Context,
+    workerParams: WorkerParameters
+) : CoroutineWorker(context, workerParams) {
+    override suspend fun doWork(): Result {
+        Log.w("main app", "save worker with input data: $inputData");
+
+        val item = Item(
+            inputData.getString("_id")!!, inputData.getString("text")!!, inputData.getString("date")!!,
+            inputData.getInt("length", 0), inputData.getBoolean("liked", false)
+        )
+
+        ItemApi.service.update(item._id, item)
+
+        return Result.success()
+    }
+
 }
