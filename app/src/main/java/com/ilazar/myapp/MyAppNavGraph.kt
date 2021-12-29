@@ -10,9 +10,11 @@ import androidx.navigation.navArgument
 import com.ilazar.myapp.auth.LoginScreen
 import com.ilazar.myapp.todo.ItemScreen
 import com.ilazar.myapp.todo.items.ItemsScreen
+import com.ilazar.myapp.todo.items.ItemsViewModel
 
 @Composable
 fun MyAppNavGraph(
+    itemsViewModel: ItemsViewModel,
     navController: NavHostController = rememberNavController(),
     startDestination: String = "login"
 ) {
@@ -21,7 +23,7 @@ fun MyAppNavGraph(
         startDestination = startDestination,
     ) {
         composable("items") {
-            ItemsScreen(navController = navController)
+            ItemsScreen(navController = navController, itemsViewModel)
         }
         composable(
             "item?itemId={itemId}",

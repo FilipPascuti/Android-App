@@ -6,12 +6,13 @@ import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.ilazar.myapp.theme.MyAppTheme
+import com.ilazar.myapp.todo.items.ItemsViewModel
 
 @Composable
-fun MyApp() {
+fun MyApp(itemsViewModel: ItemsViewModel) {
     MyAppTheme {
         Surface(color = MaterialTheme.colors.background) {
-            MyAppNavGraph()
+            MyAppNavGraph(itemsViewModel)
         }
     }
 }
@@ -19,5 +20,5 @@ fun MyApp() {
 @Preview(showBackground = true)
 @Composable
 fun MyAppPreview() {
-    MyApp()
+//    MyApp()
 }

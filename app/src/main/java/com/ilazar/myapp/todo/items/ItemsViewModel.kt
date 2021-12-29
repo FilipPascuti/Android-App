@@ -1,42 +1,46 @@
 package com.ilazar.myapp.todo.items
 
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.*
 import com.ilazar.myapp.core.TAG
 import com.ilazar.myapp.todo.data.Item
+import com.ilazar.myapp.todo.data.local.TodoDatabase
 import com.ilazar.myapp2.todo.data.ItemRepository
 import kotlinx.coroutines.launch
 
-class ItemsViewModel : ViewModel() {
+class ItemsViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableItems = MutableLiveData<List<Item>>().apply { value = emptyList() }
     private val mutableLoading = MutableLiveData<Boolean>().apply { value = false }
     private val mutableException = MutableLiveData<Throwable>().apply { value = null }
 
-    val items: LiveData<List<Item>> = mutableItems
+    val items: LiveData<List<Item>>
     val loading: LiveData<Boolean> = mutableLoading
     val loadingError: LiveData<Throwable> = mutableException
 
+    val itemRepository: ItemRepository
+
     init {
-        loadItems()
+        val itemDao = TodoDatabase.getDatabase(application, viewModelScope).itemDao()
+        itemRepository = ItemRepository(itemDao, application.applicationContext)
+        items = itemRepository.items
     }
 
-    fun loadItems() {
+    fun refresh() {
         viewModelScope.launch {
-            Log.v(TAG, "loadItems...");
+            Log.v(TAG, "refresh...");
             mutableLoading.value = true
             mutableException.value = null
-            val result = ItemRepository.loadAll()
+            val result = itemRepository.refresh()
+            Log.d(TAG, "fetched items ${result.getOrNull()}");
             if (result.isSuccess) {
-                Log.d(TAG, "loadItems succeeded");
-                mutableItems.value = result.getOrNull()
+                Log.d(TAG, "refresh succeeded this is the items data: ${items.value}");
             }
             if (result.isFailure) {
-                Log.w(TAG, "loadItems failed", result.exceptionOrNull());
+                Log.w(TAG, "refresh failed", result.exceptionOrNull());
                 mutableException.value = result.exceptionOrNull()
             }
+
             mutableLoading.value = false
         }
     }
