@@ -1,6 +1,7 @@
 package com.ilazar.myapp
 
 import android.content.Context
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -12,6 +13,7 @@ import com.ilazar.myapp.todo.ItemScreen
 import com.ilazar.myapp.todo.items.ItemsScreen
 import com.ilazar.myapp.todo.items.ItemsViewModel
 
+@ExperimentalAnimationApi
 @Composable
 fun MyAppNavGraph(
     itemsViewModel: ItemsViewModel,

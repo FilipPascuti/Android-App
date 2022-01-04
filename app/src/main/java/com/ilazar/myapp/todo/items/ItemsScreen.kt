@@ -1,6 +1,8 @@
 package com.ilazar.myapp.todo.items
 
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.Network
@@ -8,6 +10,8 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,8 +36,11 @@ import com.ilazar.myapp.todo.data.Item
 
 val TAG = "ItemsScreen"
 
+@ExperimentalAnimationApi
 @Composable
 fun ItemsScreen(navController: NavController, itemsViewModel: ItemsViewModel) {
+
+//    system services
 
     val connectivityManager
             = LocalContext.current.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -63,6 +70,21 @@ fun ItemsScreen(navController: NavController, itemsViewModel: ItemsViewModel) {
             }
         })
     }
+
+
+
+//    sensors
+
+    var sensorManager = LocalContext.current.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+    val deviceSensors: List<Sensor> = sensorManager.getSensorList(Sensor.TYPE_ALL)
+    Log.d(TAG, "showAllSensors");
+    deviceSensors.forEach {
+        Log.d(TAG, it.name + " " + it.vendor + " " + it.version);
+    }
+
+
+
 
     Log.d("main app", "!!!!!!!!!!!!!!!!!!! items view model: ${itemsViewModel.items.value}");
 
@@ -115,19 +137,40 @@ fun ItemsScreen(navController: NavController, itemsViewModel: ItemsViewModel) {
     }
 }
 
+@ExperimentalAnimationApi
 @Composable
 fun ItemList(itemList: List<Item>, navController: NavController) {
-    LazyColumn {
-        items(itemList) { item ->
-            ItemDetail(item, navController)
+    
+    var visible by remember { mutableStateOf(true) }
+    
+    Column() {
+
+        Button(
+            onClick = {visible = !visible}
+        ) {
+            Text(text = if (visible) "HIDE" else "SHOW")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+
+        AnimatedVisibility(visible = visible) {
+            LazyColumn {
+                items(itemList) { item ->
+                    ItemDetail(item, navController)
+                }
+            }
         }
     }
+    
+
 }
 
 @Composable
 fun ItemDetail(item: Item, navController: NavController) {
     Row(
-        modifier = Modifier.padding(all = 8.dp)
+        modifier = Modifier
+            .padding(all = 8.dp)
             .clickable {
 //                Log.d(TAG, "the item clicked: ${item._id}, ${item.text}")
                 navController.navigate("item?itemId=${item._id}")
